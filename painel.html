@@ -6,11 +6,11 @@
 <title>Painel de Manutenção · Rotorua Inn</title>
 <style>
   :root{ --bg:#0e1117; --card:#161b24; --card2:#13181f; --line:#232a36;
-         --txt:#e6edf3; --sub:#8b97a7; --red:#ff6b6b; --amber:#ffc14d; --green:#4cd07d; }
+         --txt:#e6edf3; --sub:#8b97a7; --red:#ff6b6b; --amber:#ffc14d; --green:#4cd07d; --slate:#7d8aa3; }
   *{box-sizing:border-box;}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
             font-family:'Segoe UI',system-ui,Arial,sans-serif;}
-  .wrap{max-width:1500px;margin:0 auto;padding:22px 26px;}
+  .wrap{max-width:1680px;margin:0 auto;padding:22px 26px;}
   header{display:flex;justify-content:space-between;align-items:center;
          border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:18px;}
   .ttl{display:flex;align-items:center;gap:12px;}
@@ -20,15 +20,19 @@
   .meta{text-align:right;}
   .meta .clock{font-size:34px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1;}
   .meta .counts{font-size:13px;color:var(--sub);margin-top:4px;}
-  .board{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+  .board{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:15px;}
   .col h2{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin:0 0 10px;}
-  .col.pend h2{color:var(--red);} .col.and h2{color:var(--amber);} .col.res h2{color:var(--green);}
+  .col.pend h2{color:var(--red);} .col.and h2{color:var(--amber);}
+  .col.paus h2{color:var(--slate);} .col.res h2{color:var(--green);}
   .card{border-radius:9px;padding:12px 13px;margin-bottom:11px;background:var(--card);border-left:4px solid #555;}
   .card.pend{border-left-color:var(--red);}
   .card.and{border-left-color:var(--amber);}
+  .card.paus{border-left-color:var(--slate);}
   .card.res{border-left-color:#2f6b46;background:var(--card2);opacity:.82;}
   .card .loc{font-size:17px;font-weight:700;}
   .card .prob{font-size:14px;color:#c3ccd8;margin:3px 0 7px;}
+  .card .motivo{font-size:12.5px;color:var(--slate);background:rgba(125,138,163,.12);
+                border-radius:7px;padding:5px 8px;margin:0 0 7px;}
   .card .info{font-size:12px;color:var(--sub);}
   .empty{font-size:13px;color:#5a6472;padding:8px 2px;}
   footer{margin-top:18px;border-top:1px solid var(--line);padding-top:10px;
@@ -51,6 +55,7 @@
   <div class="board">
     <div class="col pend"><h2>● Pendente</h2><div id="col-pend"></div></div>
     <div class="col and"><h2>● Em andamento</h2><div id="col-and"></div></div>
+    <div class="col paus"><h2>● Pausado</h2><div id="col-paus"></div></div>
     <div class="col res"><h2>● Resolvido hoje</h2><div id="col-res"></div></div>
   </div>
   <footer>
@@ -62,7 +67,7 @@
 <script>
 const SHEET_ID = "1ADR5V0QzwKopeke4DBPJXaRT4vWf-bbOE3J7O_AU--A";
 const SHEET_NAME = "CHAMADOS";
-// índice das colunas na planilha (0-based): 1=Aberto em,2=Local,3=Problema,4=Urgencia,5=Solicitante,6=Status,7=Responsavel,8=Inicio,9=Resolvido em
+// índice das colunas (0-based): 1=Aberto 2=Local 3=Problema 4=Urgencia 5=Solicitante 6=Status 7=Responsavel 8=Inicio 9=Resolvido 10=Observacao
 function clock(){ const d=new Date(),p=n=>(""+n).padStart(2,"0");
   document.getElementById("clock").textContent=p(d.getHours())+":"+p(d.getMinutes()); }
 setInterval(clock,1000); clock();
@@ -70,27 +75,33 @@ setInterval(clock,1000); clock();
 function esc(s){ return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 function val(r,i){ const c=r.c[i]; return c && c.v!=null ? (""+c.v).trim() : ""; }
 function urg(u){ return (u||"").toLowerCase().indexOf("urg")>=0 ? "🔴 Urgente" : "🟡 Normal"; }
+function hojeDM(){ const d=new Date(); return (""+d.getDate()).padStart(2,"0")+"/"+(""+(d.getMonth()+1)).padStart(2,"0"); }
 
 function card(r,cls){
-  const info = cls=="res" ? ("✓ "+(r.resolvido||r.inicio||"")+" · "+(r.responsavel||"-"))
-    : cls=="and" ? (urg(r.urgencia)+" · "+(r.responsavel||"-")+" · desde "+(r.inicio||r.aberto||""))
-    : (urg(r.urgencia)+" · "+(r.aberto||"")+" · "+(r.solicitante||""));
+  const info = cls=="res"  ? ("✓ "+(r.resolvido||r.inicio||"")+" · "+(r.responsavel||"-"))
+    : cls=="paus" ? ("⏸ pausado · "+(r.responsavel||"-"))
+    : cls=="and"  ? (urg(r.urgencia)+" · "+(r.responsavel||"-")+" · desde "+(r.inicio||r.aberto||""))
+    :               (urg(r.urgencia)+" · "+(r.aberto||"")+" · "+(r.solicitante||""));
+  const motivo = (cls=="paus" && r.obs) ? '<div class="motivo">'+esc(r.obs)+'</div>' : '';
   return '<div class="card '+cls+'"><div class="loc">'+esc(r.local||"-")+'</div>'+
-         '<div class="prob">'+esc(r.problema||"")+'</div><div class="info">'+esc(info)+'</div></div>';
+         '<div class="prob">'+esc(r.problema||"")+'</div>'+motivo+'<div class="info">'+esc(info)+'</div></div>';
 }
 
 function render(objs){
-  const g={pend:[],and:[],res:[]};
+  const g={pend:[],and:[],paus:[],res:[]};
   objs.forEach(o=>{ const s=(o.status||"").toLowerCase();
     if(s.indexOf("pend")>=0) g.pend.push(o);
     else if(s.indexOf("andamento")>=0) g.and.push(o);
-    else if(s.indexOf("resolv")>=0) g.res.push(o); });
+    else if(s.indexOf("paus")>=0) g.paus.push(o);
+    else if(s.indexOf("resolv")>=0){ if((o.resolvido||"").indexOf(hojeDM())===0) g.res.push(o); } });
   const fill=(id,arr,cls)=>{ document.getElementById(id).innerHTML =
       arr.length ? arr.map(o=>card(o,cls)).join("") : '<div class="empty">nenhum</div>'; };
-  fill("col-pend",g.pend,"pend"); fill("col-and",g.and,"and"); fill("col-res",g.res,"res");
+  fill("col-pend",g.pend,"pend"); fill("col-and",g.and,"and");
+  fill("col-paus",g.paus,"paus"); fill("col-res",g.res,"res");
   document.getElementById("counts").innerHTML =
       '<b style="color:var(--red)">'+g.pend.length+'</b> pendentes · '+
-      '<b style="color:var(--amber)">'+g.and.length+'</b> em andamento';
+      '<b style="color:var(--amber)">'+g.and.length+'</b> em andamento · '+
+      '<b style="color:var(--slate)">'+g.paus.length+'</b> pausados';
   document.getElementById("status").textContent = "atualizado " + new Date().toLocaleTimeString("pt-BR");
 }
 function showErr(){ document.getElementById("status").innerHTML='<span class="err">erro ao ler a planilha (conferir compartilhamento)</span>'; }
@@ -99,12 +110,12 @@ window.__gvizcb = function(resp){
   try{
     const rows=(resp.table&&resp.table.rows)||[]; const objs=[];
     rows.forEach(r=>{ if(!r||!r.c) return;
-      if(val(r,0).toLowerCase()==="id") return;          // pula a linha do cabeçalho
+      if(val(r,0).toLowerCase()==="id") return;          // pula cabeçalho
       if(val(r,2)==="__UPDATE__") return;                // pula marcações de atualização (servidor processa e apaga)
       const status=val(r,6); if(!status) return;
       objs.push({ aberto:val(r,1), local:val(r,2), problema:val(r,3), urgencia:val(r,4),
                   solicitante:val(r,5), status:status, responsavel:val(r,7),
-                  inicio:val(r,8), resolvido:val(r,9) }); });
+                  inicio:val(r,8), resolvido:val(r,9), obs:val(r,10) }); });
     render(objs);
   }catch(e){ showErr(); }
 };
