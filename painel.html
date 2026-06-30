@@ -100,6 +100,7 @@ window.__gvizcb = function(resp){
     const rows=(resp.table&&resp.table.rows)||[]; const objs=[];
     rows.forEach(r=>{ if(!r||!r.c) return;
       if(val(r,0).toLowerCase()==="id") return;          // pula a linha do cabeçalho
+      if(val(r,2)==="__UPDATE__") return;                // pula marcações de atualização (servidor processa e apaga)
       const status=val(r,6); if(!status) return;
       objs.push({ aberto:val(r,1), local:val(r,2), problema:val(r,3), urgencia:val(r,4),
                   solicitante:val(r,5), status:status, responsavel:val(r,7),

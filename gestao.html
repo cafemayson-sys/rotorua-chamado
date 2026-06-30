@@ -41,14 +41,14 @@
   .btn:active{transform:scale(.97);}
   .btn.go{background:rgba(255,193,77,.13);border-color:var(--amber);color:var(--amber);}
   .btn.done{background:rgba(76,208,125,.14);border-color:var(--green);color:var(--green);}
-  .card.busy{opacity:.5;pointer-events:none;}
-  .card.gone{opacity:0;transform:translateX(40px);}
+  .card.busy{opacity:.55;pointer-events:none;}
+  .card.gone{opacity:0;transform:translateX(40px);height:0;margin:0;padding:0;overflow:hidden;}
   .empty{text-align:center;color:#5a6472;font-size:15px;padding:48px 10px;}
   .empty .big{font-size:42px;display:block;margin-bottom:10px;}
   footer{margin-top:8px;text-align:center;font-size:11px;color:#5a6472;}
   .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(80px);
          background:#10331f;color:var(--green);border:1px solid var(--green);padding:11px 18px;
-         border-radius:11px;font-size:14px;font-weight:600;opacity:0;transition:all .25s;}
+         border-radius:11px;font-size:14px;font-weight:600;opacity:0;transition:all .25s;z-index:9;}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
 </style>
 </head>
@@ -75,12 +75,15 @@
 <div class="toast" id="toast"></div>
 
 <script>
-// === LIGAÇÃO COM A PLANILHA / CANAL DE ATUALIZAÇÃO ===
+// === LIGAÇÃO ===
+// Lê os chamados da planilha CHAMADOS (gviz). Para MUDAR o status, reaproveita o MESMO
+// formulário da recepção (já testado e funcionando) marcando a linha como "__UPDATE__":
+// o servidor lê essas marcações e aplica o status na planilha sozinho. Sem Apps Script novo.
 const SHEET_ID  = "1ADR5V0QzwKopeke4DBPJXaRT4vWf-bbOE3J7O_AU--A";
 const SHEET_NAME= "CHAMADOS";
-// >>> PREENCHER depois que o Mayson rodar criarFormularioAtualizar e mandar o link <<<
-const FORM_UPDATE = "__FORM_RESPONSE_URL__";
-const EU = { id:"__ENTRY_ID__", acao:"__ENTRY_ACAO__", resp:"__ENTRY_RESP__" };
+const FORM = "https://docs.google.com/forms/d/e/1FAIpQLSeZPm6OjWwJ1ynSZR_-NPw6UsR9q7Vw9Q_7UNazfwoddYsEJg/formResponse";
+const E = { local:"entry.932192929", problema:"entry.1559822300", urgencia:"entry.694324571", solicitante:"entry.272119414" };
+const MARCA = "__UPDATE__";   // sentinela: linha de atualização (o servidor processa e apaga)
 
 const $ = s => document.getElementById(s);
 const meInput = $("me");
@@ -91,31 +94,35 @@ function esc(s){ return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">
 function val(r,i){ const c=r.c[i]; return c && c.v!=null ? (""+c.v).trim() : ""; }
 function isUrg(u){ return (u||"").toLowerCase().indexOf("urg")>=0; }
 
-let DADOS = [];
+// estado otimista "grudento": mantém a mudança na tela mesmo nos refreshes,
+// até a planilha confirmar (servidor aplicar). Expira em 3 min se algo falhar.
+const pending = {};   // id -> { status, t }
+function aplicarPend(o){
+  const p = pending[o.id]; if(!p) return o;
+  if(Date.now()-p.t > 180000){ delete pending[o.id]; return o; }       // auto-cura
+  const sheetStatus=(o.status||"").toLowerCase();
+  const want=p.status.toLowerCase();
+  if(sheetStatus.indexOf(want.indexOf("resolv")>=0?"resolv":"andamento")>=0){ delete pending[o.id]; return o; } // confirmado
+  return Object.assign({}, o, { status:p.status });
+}
 
 function render(objs){
-  DADOS = objs;
-  const abertos = objs.filter(o=>{
-    const s=(o.status||"").toLowerCase();
-    return s.indexOf("pend")>=0 || s.indexOf("andamento")>=0;
-  });
-  // urgentes primeiro, depois pendentes antes de em-andamento
+  const abertos = objs
+    .filter(o => o.local !== MARCA)                 // ignora linhas de atualização
+    .map(aplicarPend)
+    .filter(o=>{ const s=(o.status||"").toLowerCase();
+                 return s.indexOf("pend")>=0 || s.indexOf("andamento")>=0; });
   abertos.sort((a,b)=>{
-    const ua=isUrg(a.urgencia)?0:1, ub=isUrg(b.urgencia)?0:1;
-    if(ua!==ub) return ua-ub;
+    const ua=isUrg(a.urgencia)?0:1, ub=isUrg(b.urgencia)?0:1; if(ua!==ub) return ua-ub;
     const pa=(a.status||"").toLowerCase().indexOf("pend")>=0?0:1;
-    const pb=(b.status||"").toLowerCase().indexOf("pend")>=0?0:1;
-    return pa-pb;
+    const pb=(b.status||"").toLowerCase().indexOf("pend")>=0?0:1; return pa-pb;
   });
   const nPend = abertos.filter(o=>(o.status||"").toLowerCase().indexOf("pend")>=0).length;
   $("c-pend").textContent = nPend;
   $("c-and").textContent  = abertos.length - nPend;
-
-  if(!abertos.length){
-    $("list").innerHTML = '<div class="empty"><span class="big">✅</span>Tudo em dia, nenhum chamado aberto.</div>';
-  } else {
-    $("list").innerHTML = abertos.map(card).join("");
-  }
+  $("list").innerHTML = abertos.length
+    ? abertos.map(card).join("")
+    : '<div class="empty"><span class="big">✅</span>Tudo em dia, nenhum chamado aberto.</div>';
   $("status").textContent = "atualizado " + new Date().toLocaleTimeString("pt-BR");
 }
 
@@ -123,9 +130,8 @@ function card(o){
   const pend = (o.status||"").toLowerCase().indexOf("pend")>=0;
   const cls = pend ? "pend" : "and";
   const tag = isUrg(o.urgencia) ? '<span class="tag u">🔴 Urgente</span>' : '<span class="tag n">Normal</span>';
-  const info = pend
-    ? ("aberto "+(o.aberto||"")+" · "+(o.solicitante||"recepção"))
-    : ("desde "+(o.inicio||o.aberto||"")+" · "+(o.responsavel||"-"));
+  const info = pend ? ("aberto "+(o.aberto||"")+" · "+(o.solicitante||"recepção"))
+                    : ("desde "+(o.inicio||o.aberto||"")+" · "+(o.responsavel||"-"));
   const botoes = pend
     ? '<div class="acts"><button class="btn go" onclick="acao(\''+o.id+'\',\'Em andamento\',this)">▶ Comecei</button>'
       +'<button class="btn done" onclick="acao(\''+o.id+'\',\'Resolvido\',this)">✓ Resolvido</button></div>'
@@ -133,27 +139,26 @@ function card(o){
   return '<div class="card '+cls+'" data-id="'+esc(o.id)+'">'
     +'<div class="top"><div class="loc">'+esc(o.local||"-")+'</div>'+tag+'</div>'
     +'<div class="prob">'+esc(o.problema||"")+'</div>'
-    +'<div class="info">#'+esc(o.id)+' · '+esc(info)+'</div>'
-    +botoes+'</div>';
+    +'<div class="info">#'+esc(o.id)+' · '+esc(info)+'</div>'+botoes+'</div>';
 }
 
-function toast(msg){
-  const t=$("toast"); t.textContent=msg; t.classList.add("show");
-  setTimeout(()=>t.classList.remove("show"), 2200);
-}
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2200); }
 
 function acao(id, novo, btn){
-  if(FORM_UPDATE.indexOf("__")===0){ toast("canal ainda não ligado"); return; }
   const cardEl = btn.closest(".card");
   cardEl.classList.add("busy");
+  const quem = meInput.value.trim() || "Manutenção";
+  pending[id] = { status:novo, t:Date.now() };          // gruda o otimista
   const body = new URLSearchParams();
-  body.append(EU.id, id);
-  body.append(EU.acao, novo);
-  body.append(EU.resp, (meInput.value.trim() || "Manutenção"));
-  fetch(FORM_UPDATE, { method:"POST", mode:"no-cors", body }).finally(()=>{
-    if(novo==="Resolvido"){ cardEl.classList.add("gone"); }
+  body.append(E.local, MARCA);
+  body.append(E.problema, id+"|"+novo+"|"+quem);         // o servidor lê: id|acao|quem
+  body.append(E.urgencia, "Normal");
+  body.append(E.solicitante, quem);
+  fetch(FORM, { method:"POST", mode:"no-cors", body }).finally(()=>{
+    if(novo==="Resolvido") cardEl.classList.add("gone");
     toast(novo==="Resolvido" ? "Chamado #"+id+" resolvido ✓" : "Chamado #"+id+" em andamento");
-    setTimeout(carregar, 2500);   // o gatilho grava em ~1-2s; relê pra confirmar
+    setTimeout(carregar, 2500);
   });
 }
 
@@ -161,7 +166,7 @@ window.__gvizcb = function(resp){
   try{
     const rows=(resp.table&&resp.table.rows)||[]; const objs=[];
     rows.forEach(r=>{ if(!r||!r.c) return;
-      if(val(r,0).toLowerCase()==="id") return;             // pula cabeçalho
+      if(val(r,0).toLowerCase()==="id") return;
       const status=val(r,6); if(!status) return;
       objs.push({ id:val(r,0), aberto:val(r,1), local:val(r,2), problema:val(r,3),
                   urgencia:val(r,4), solicitante:val(r,5), status:status,
