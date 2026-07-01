@@ -28,6 +28,7 @@
   .seg button.on{color:var(--txt);}
   .seg button[data-v="Normal"].on{border-color:var(--green);background:rgba(76,208,125,.12);color:var(--green);}
   .seg button[data-v="Urgente"].on{border-color:var(--red);background:rgba(255,93,93,.14);color:var(--red);}
+  .seg.solic button.on{border-color:var(--green);background:rgba(76,208,125,.12);color:var(--green);}
   .go{width:100%;margin-top:30px;padding:17px;border:0;border-radius:14px;background:var(--green);
     color:#06210f;font-size:18px;font-weight:800;cursor:pointer;transition:transform .08s,opacity .2s;}
   .go:active{transform:scale(.985);}
@@ -69,7 +70,12 @@
   </div>
   <div class="field">
     <label>Quem está abrindo</label>
-    <input id="solicitante" value="Recepção" autocomplete="off">
+    <div class="seg solic" id="segsolic">
+      <button type="button" data-v="Hóspede">Hóspede</button>
+      <button type="button" data-v="Governança">Governança</button>
+      <button type="button" data-v="Recepção" class="on">Recepção</button>
+      <button type="button" data-v="ADM">ADM</button>
+    </div>
   </div>
 
   <button class="go" id="go">Abrir chamado</button>
@@ -92,21 +98,28 @@ document.getElementById("seg").addEventListener("click", e=>{
   [...document.querySelectorAll("#seg button")].forEach(x=>x.classList.toggle("on", x===b));
 });
 
+let solicitante = "Recepção";
+document.getElementById("segsolic").addEventListener("click", e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  solicitante = b.dataset.v;
+  [...document.querySelectorAll("#segsolic button")].forEach(x=>x.classList.toggle("on", x===b));
+});
+
 const go = document.getElementById("go");
 go.addEventListener("click", ()=>{
   const local = document.getElementById("local").value.trim();
   const problema = document.getElementById("problema").value.trim();
-  const solicitante = document.getElementById("solicitante").value.trim() || "Recepção";
   if(!local || !problema){ alert("Preencha o local e o problema."); return; }
   go.disabled = true; go.textContent = "Enviando...";
   const body = new URLSearchParams();
   body.append(E.local, local); body.append(E.problema, problema);
-  body.append(E.urgencia, urgencia); body.append(E.solicitante, solicitante);
+  body.append(E.urgencia, urgencia); body.append(E.solicitante, solicitante || "Recepção");
   fetch(FORM, { method:"POST", mode:"no-cors", body }).finally(()=>{
     document.getElementById("ok").classList.add("show");
     setTimeout(()=>{ // reseta pra o próximo chamado, rápido
       document.getElementById("local").value=""; document.getElementById("problema").value="";
       urgencia="Normal"; [...document.querySelectorAll("#seg button")].forEach(x=>x.classList.toggle("on", x.dataset.v==="Normal"));
+      solicitante="Recepção"; [...document.querySelectorAll("#segsolic button")].forEach(x=>x.classList.toggle("on", x.dataset.v==="Recepção"));
       go.disabled=false; go.textContent="Abrir chamado";
       document.getElementById("ok").classList.remove("show");
       document.getElementById("local").focus();
