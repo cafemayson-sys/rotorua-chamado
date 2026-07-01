@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Painel Administrativo · Manutenção · Rotorua Inn</title>
+<style>
+  :root{ --bg:#0a0d13; --bg2:#0e131b; --card:#161c27; --card2:#1b2330; --line:#28313f;
+    --txt:#f1f5fa; --sub:#8b97a9; --mut:#5c6677; --red:#ff5d6c; --amber:#ffb84d; --slate:#8a98b2; --green:#49d07f; }
+  *{box-sizing:border-box;}
+  html,body{margin:0;min-height:100%;background:radial-gradient(1200px 500px at 50% -140px,#141c2b,var(--bg) 60%) no-repeat var(--bg);
+    color:var(--txt);font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1100px;margin:0 auto;padding:22px 20px 48px;}
+  header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line);
+    padding-bottom:16px;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
+  .ttl{display:flex;align-items:center;gap:12px;}
+  .ttl .logo{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+    font-size:24px;background:linear-gradient(150deg,#1d2736,#141b27);border:1px solid var(--line);}
+  .ttl h1{font-size:22px;margin:0;font-weight:800;}
+  .ttl .sub{font-size:12px;color:var(--sub);}
+  .upd{font-size:12px;color:var(--mut);}
+  .upd .live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:6px;animation:pulse 2s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px;}
+  .metric{background:linear-gradient(180deg,var(--card),#141a24);border:1px solid var(--line);border-radius:16px;padding:18px;}
+  .metric .n{font-size:40px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;}
+  .metric .l{font-size:12.5px;color:var(--sub);margin-top:8px;text-transform:uppercase;letter-spacing:.5px;font-weight:600;}
+  .metric.pend{border-top:3px solid var(--red);} .metric.pend .n{color:var(--red);}
+  .metric.and{border-top:3px solid var(--amber);} .metric.and .n{color:var(--amber);}
+  .metric.paus{border-top:3px solid var(--slate);} .metric.paus .n{color:var(--slate);}
+  .metric.res{border-top:3px solid var(--green);} .metric.res .n{color:var(--green);}
+  h2{font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--sub);margin:0 0 12px;}
+  .sec{margin-bottom:28px;}
+  .row{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:9px;
+    display:flex;align-items:center;gap:14px;}
+  .row .loc{font-size:16px;font-weight:700;min-width:96px;}
+  .row .prob{flex:1;font-size:14.5px;color:#d7dee8;}
+  .row .prob .m{font-size:12px;color:var(--mut);margin-top:3px;}
+  .row .info{font-size:12.5px;color:var(--mut);text-align:right;white-space:nowrap;}
+  .chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 11px;font-size:11px;font-weight:700;
+    white-space:nowrap;border:1px solid transparent;}
+  .chip .d{width:6px;height:6px;border-radius:50%;background:currentColor;}
+  .chip.pend{color:var(--red);background:rgba(255,93,108,.13);border-color:rgba(255,93,108,.28);}
+  .chip.and{color:var(--amber);background:rgba(255,184,77,.13);border-color:rgba(255,184,77,.28);}
+  .chip.paus{color:var(--slate);background:rgba(138,152,178,.14);border-color:rgba(138,152,178,.3);}
+  .chip.res{color:var(--green);background:rgba(73,208,127,.14);border-color:rgba(73,208,127,.3);}
+  .urg{color:var(--red);font-weight:700;}
+  .empty{color:var(--mut);font-size:14px;padding:18px;text-align:center;background:var(--bg2);
+    border:1px dashed var(--line);border-radius:12px;}
+  footer{text-align:center;font-size:11px;color:var(--mut);margin-top:12px;}
+  @media(max-width:640px){ .metrics{grid-template-columns:repeat(2,1fr);} .row{flex-wrap:wrap;} .row .info{text-align:left;width:100%;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="ttl">
+      <div class="logo">🛠️</div>
+      <div><h1>Painel Administrativo</h1><div class="sub">Hotel Rotorua Inn · Manutenção · uso interno (ADM)</div></div>
+    </div>
+    <div class="upd"><span class="live"></span><span id="upd">carregando…</span></div>
+  </header>
+
+  <div class="metrics">
+    <div class="metric pend"><div class="n" id="m-pend">0</div><div class="l">Pendentes</div></div>
+    <div class="metric and"><div class="n" id="m-and">0</div><div class="l">Em andamento</div></div>
+    <div class="metric paus"><div class="n" id="m-paus">0</div><div class="l">Pausados</div></div>
+    <div class="metric res"><div class="n" id="m-res">0</div><div class="l">Resolvidos</div></div>
+  </div>
+
+  <div class="sec">
+    <h2>Demandas abertas</h2>
+    <div id="abertas"></div>
+  </div>
+
+  <div class="sec">
+    <h2>Resolvidos recentes</h2>
+    <div id="resolvidos"></div>
+  </div>
+
+  <footer>Atualiza sozinho a cada 30s · lê direto da planilha de chamados · não altera nada</footer>
+</div>
+
+<script>
+const SHEET_ID="1ADR5V0QzwKopeke4DBPJXaRT4vWf-bbOE3J7O_AU--A";
+const SHEET_NAME="CHAMADOS";
+const MARCA="__UPDATE__";
+function esc(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function val(r,i){const c=r.c[i];return c&&c.v!=null?(""+c.v).trim():"";}
+function isUrg(u){return (u||"").toLowerCase().indexOf("urg")>=0;}
+function sClass(s){s=(s||"").toLowerCase();
+  if(s.indexOf("pend")>=0)return "pend"; if(s.indexOf("andamento")>=0)return "and";
+  if(s.indexOf("paus")>=0)return "paus"; if(s.indexOf("resolv")>=0)return "res"; return "";}
+function sLabel(s){return {pend:"Pendente",and:"Em andamento",paus:"Pausado",res:"Resolvido"}[sClass(s)]||s;}
+
+function rowOpen(o){
+  const cls=sClass(o.status);
+  const urg=isUrg(o.urgencia)?'<span class="urg">🔴 Urgente</span> · ':'';
+  const info=(cls==="paus"&&o.obs)?("pausa: "+esc(o.obs))
+    :("aberto "+esc(o.aberto||"")+(o.solicitante?(" · por "+esc(o.solicitante)):"")+(o.responsavel?(" · resp. "+esc(o.responsavel)):""));
+  return '<div class="row"><div class="loc">'+esc(o.local||"-")+'</div>'
+    +'<div class="prob">'+esc(o.problema||"")+'<div class="m">'+urg+info+'</div></div>'
+    +'<div class="info"><span class="chip '+cls+'"><span class="d"></span>'+sLabel(o.status)+'</span></div></div>';
+}
+function rowRes(o){
+  return '<div class="row"><div class="loc">'+esc(o.local||"-")+'</div>'
+    +'<div class="prob">'+esc(o.problema||"")+'</div>'
+    +'<div class="info">✓ '+esc(o.resolvido||o.inicio||"")+(o.responsavel?(" · "+esc(o.responsavel)):"")+'</div></div>';
+}
+
+window.__gvizcb=function(resp){
+  try{
+    const rows=(resp.table&&resp.table.rows)||[]; const o=[];
+    rows.forEach(r=>{ if(!r||!r.c)return;
+      if(val(r,0).toLowerCase()==="id")return;
+      if(val(r,2)===MARCA)return;
+      const status=val(r,6); if(!status)return;
+      o.push({id:val(r,0),aberto:val(r,1),local:val(r,2),problema:val(r,3),urgencia:val(r,4),
+              solicitante:val(r,5),status:status,responsavel:val(r,7),inicio:val(r,8),resolvido:val(r,9),obs:val(r,10)});
+    });
+    render(o);
+  }catch(e){ document.getElementById("upd").textContent="erro ao ler a planilha"; }
+};
+function render(o){
+  const by=c=>o.filter(x=>sClass(x.status)===c);
+  const pend=by("pend"),and=by("and"),paus=by("paus"),res=by("res");
+  document.getElementById("m-pend").textContent=pend.length;
+  document.getElementById("m-and").textContent=and.length;
+  document.getElementById("m-paus").textContent=paus.length;
+  document.getElementById("m-res").textContent=res.length;
+  const abertas=[...pend,...and,...paus].sort((a,b)=>(isUrg(b.urgencia)?1:0)-(isUrg(a.urgencia)?1:0));
+  document.getElementById("abertas").innerHTML=abertas.length?abertas.map(rowOpen).join(""):'<div class="empty">Nenhuma demanda aberta. Tudo em dia. ✅</div>';
+  const resList=res.slice().reverse().slice(0,30);
+  document.getElementById("resolvidos").innerHTML=resList.length?resList.map(rowRes).join(""):'<div class="empty">Nenhum chamado resolvido ainda.</div>';
+  document.getElementById("upd").textContent="atualizado "+new Date().toLocaleTimeString("pt-BR");
+}
+function carregar(){
+  const old=document.getElementById("gv"); if(old)old.remove();
+  const s=document.createElement("script"); s.id="gv";
+  s.onerror=()=>{document.getElementById("upd").textContent="sem conexão com a planilha";};
+  s.src="https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?tqx=out:json;responseHandler:__gvizcb&sheet="+SHEET_NAME+"&_="+Date.now();
+  document.head.appendChild(s);
+}
+carregar(); setInterval(carregar,30000);
+</script>
+</body>
+</html>
